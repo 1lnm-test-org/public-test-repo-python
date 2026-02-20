@@ -4,20 +4,21 @@ on:
 # Initial proposal is daily runs to avoid overloading runners, teams can uncomment below to enable on push and PR events
 #  push:
 #    branches: [ "main", "master" ]
-#  pull_request:
-#    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
   schedule:
-    - cron: '19 23 * * *' # Randomized per repository, daily runs somewhere between 22:00 and 06:00 UTC
+    - cron: '19 23 * * 1' # Randomized per repository, daily runs somewhere between 22:00 and 06:00 UTC, only on Monday
   workflow_dispatch:
 
 env:
   ARTIFACTORY_PASSWORD: ${{ secrets.EE_ARTIFACTORY_PASSWORD }}
   ARTIFACTORY_URL: ${{ secrets.EE_ARTIFACTORY_URL }}
   ARTIFACTORY_USERNAME: ${{ secrets.EE_ARTIFACTORY_USERNAME }}
+  CUSTOM: "custom"
 
 jobs:
   analyze:
-    name: Analyze
+    name: Analyze but with different name
     runs-on: ubuntu-latest
     permissions:
       actions: read
@@ -30,21 +31,33 @@ jobs:
         include:
           - language: actions
             build-mode: none
-          - language: javascript-typescript
-            build-mode: none
           - language: python
             build-mode: none
+
+    concurrency:
+      group: codeql
+      cancel-in-progress: ${{ github.event_name == 'push' }} # only cancel push-triggered jobs; lets scheduled or manual full scans finish.
+            
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Custom step
+        run: echo "custom step"
+
+# custom comment
 
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v4
         with:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.build-mode }}
+          packs: springernature/http4k-poc-models@1.0.0
+
+      - name: Custom step 2
+        run: echo "custom step 2"
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v4
         with:
-          category: "/language:${{matrix.language}}"
+          category: "Project:${{ matrix.language }}"
